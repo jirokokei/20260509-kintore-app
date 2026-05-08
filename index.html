@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="運動記録">
+  <meta name="theme-color" content="#1a3669">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>運動記録アプリ</title>
+  <style>
+    :root {
+      --machine-w: 86px;
+      --day-w: 46px;
+      --row-h: 50px;
+      --hdr-h: 52px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+    }
+
+    /* ─── App shell ─── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      height: 100dvh;
+      background: #1a3669;
+    }
+
+    /* ─── Header ─── */
+    .app-header {
+      flex-shrink: 0;
+      background: linear-gradient(160deg, #1a3669 0%, #2455a4 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+    }
+
+    .app-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .today-chip {
+      background: rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* ─── Month navigation ─── */
+    .month-nav {
+      flex-shrink: 0;
+      background: #152d5a;
+      display: flex;
+      align-items: center;
+      padding: 7px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .nav-btn {
+      background: rgba(255,255,255,0.13);
+      border: none;
+      color: #fff;
+      border-radius: 10px;
+      width: 44px;
+      height: 38px;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.12s;
+    }
+    .nav-btn:active  { background: rgba(255,255,255,0.28); }
+    .nav-btn:disabled { opacity: 0.25; pointer-events: none; }
+
+    .month-label {
+      flex: 1;
+      text-align: center;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* ─── Main grid ─── */
+    #grid {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ─── Left fixed column (machine names) ─── */
+    #left-col {
+      flex-shrink: 0;
+      width: var(--machine-w);
+      display: flex;
+      flex-direction: column;
+      background: #1e3a8a;
+      border-right: 2px solid rgba(255,255,255,0.25);
+      z-index: 10;
+    }
+
+    #left-hdr {
+      flex-shrink: 0;
+      height: var(--hdr-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a3669;
+      color: rgba(255,255,255,0.55);
+      font-size: 10px;
+      font-weight: 600;
+      border-bottom: 2px solid rgba(255,255,255,0.25);
+    }
+
+    #left-body {
+      overflow-y: hidden; /* scrollTop is synced via JS */
+    }
+
+    .machine-cell {
+      height: var(--row-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 5px;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.45;
+      word-break: break-all;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* ─── Right scrollable area (dates) ─── */
+    #right-wrap {
+      flex: 1;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
+      background: #dde4ef;
+    }
+
+    /* ─── Dates table ─── */
+    #dates-table {
+      border-collapse: collapse;
+    }
+
+    /* Date header row — sticky top within right-wrap */
+    .date-th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      width: var(--day-w);
+      min-width: var(--day-w);
+      height: var(--hdr-h);
+      background: #1a3669;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      padding: 5px 2px;
+      line-height: 1.45;
+      white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 2px solid rgba(255,255,255,0.25);
+    }
+
+    .date-th.is-today { background: #e8650a; }
+    .date-th.is-sat   { color: #93c5fd; }
+    .date-th.is-sun   { color: #fca5a5; }
+
+    /* Data cells */
+    .data-td {
+      width: var(--day-w);
+      min-width: var(--day-w);
+      height: var(--row-h);
+      background: #fff;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      border-right: 1px solid #cfd8e8;
+      border-bottom: 1px solid #cfd8e8;
+    }
+
+    .data-td:active { background: #dbeafe !important; }
+
+    tr:nth-child(even) .data-td       { background: #f3f6fc; }
+    .data-td.is-today                  { background: #fff7f0 !important; }
+    tr:nth-child(even) .data-td.is-today { background: #feede0 !important; }
+
+    /* ─── 済 mark ─── */
+    .sumi {
+      display: inline-flex;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2.5px solid #1d4ed8;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 700;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <header class="app-header">
+    <h1 class="app-title">🏋️ 運動記録アプリ</h1>
+    <span class="today-chip" id="today-chip"></span>
+  </header>
+
+  <div class="month-nav">
+    <button class="nav-btn" id="btn-prev">‹</button>
+    <div class="month-label" id="month-label"></div>
+    <button class="nav-btn" id="btn-next">›</button>
+  </div>
+
+  <div id="grid">
+    <!-- Fixed left panel: always-visible machine names -->
+    <div id="left-col">
+      <div id="left-hdr">マシン</div>
+      <div id="left-body"></div>
+    </div>
+
+    <!-- Scrollable right panel: date columns -->
+    <div id="right-wrap">
+      <table id="dates-table">
+        <thead id="dates-thead"></thead>
+        <tbody id="dates-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const MACHINES = [
+  'ラットプルダウン',
+  'ショルダープレス',
+  'チェストプレス',
+  'ディップス',
+  'バイセップスカール',
+  'アブベンチ',
+  'レッグプレス',
+  'アダクション',
+  'アブダクション',
+  'マシンピラティス',
+  'バイク',
+  'トレッドミル'
+];
+
+const DOW   = ['日','月','火','水','木','金','土'];
+const START = { y: 2026, m: 5 };
+
+const now  = new Date();
+const nowY = now.getFullYear();
+const nowM = now.getMonth() + 1;
+const nowD = now.getDate();
+
+let viewY = Math.max(nowY, START.y);
+let viewM = (viewY === START.y) ? Math.max(nowM, START.m) : nowM;
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+function sKey(y, m, d, mac) {
+  return 'ex_' + y + '_' + String(m).padStart(2,'0') + '_' + String(d).padStart(2,'0') + '_' + mac;
+}
+function getState(y, m, d, mac) {
+  try { return localStorage.getItem(sKey(y, m, d, mac)) === '1'; } catch(e) { return false; }
+}
+function toggleState(y, m, d, mac) {
+  try {
+    const k = sKey(y, m, d, mac);
+    localStorage.getItem(k) === '1' ? localStorage.removeItem(k) : localStorage.setItem(k, '1');
+  } catch(e) {}
+}
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const days   = daysInMonth(viewY, viewM);
+  const isCur  = (viewY === nowY && viewM === nowM);
+  const atStart = (viewY === START.y && viewM === START.m);
+
+  document.getElementById('month-label').textContent = viewY + '年' + viewM + '月';
+  document.getElementById('today-chip').textContent  = '今日 ' + nowM + '/' + nowD + '（' + DOW[now.getDay()] + '）';
+  document.getElementById('btn-prev').disabled = atStart;
+
+  // Left panel: machine name cells
+  var lHtml = '';
+  for (var mi = 0; mi < MACHINES.length; mi++) {
+    lHtml += '<div class="machine-cell">' + MACHINES[mi] + '</div>';
+  }
+  document.getElementById('left-body').innerHTML = lHtml;
+
+  // Date header row
+  var hHtml = '<tr>';
+  for (var d = 1; d <= days; d++) {
+    var dow = new Date(viewY, viewM - 1, d).getDay();
+    var cls = 'date-th';
+    if (isCur && d === nowD) cls += ' is-today';
+    else if (dow === 6)      cls += ' is-sat';
+    else if (dow === 0)      cls += ' is-sun';
+    hHtml += '<th class="' + cls + '">' + d + '<br>' + DOW[dow] + '</th>';
+  }
+  hHtml += '</tr>';
+  document.getElementById('dates-thead').innerHTML = hHtml;
+
+  // Data rows (one row per machine)
+  var bHtml = '';
+  for (var mi = 0; mi < MACHINES.length; mi++) {
+    bHtml += '<tr>';
+    for (var d = 1; d <= days; d++) {
+      var isTodayCol = isCur && d === nowD;
+      var done = getState(viewY, viewM, d, MACHINES[mi]);
+      bHtml += '<td class="data-td' + (isTodayCol ? ' is-today' : '') + '"'
+             + ' data-mi="' + mi + '" data-d="' + d + '">'
+             + (done ? '<span class="sumi">済</span>' : '')
+             + '</td>';
+    }
+    bHtml += '</tr>';
+  }
+  document.getElementById('dates-tbody').innerHTML = bHtml;
+
+  // Scroll so today is near the left edge
+  requestAnimationFrame(function() {
+    var wrap = document.getElementById('right-wrap');
+    wrap.scrollLeft = isCur ? Math.max(0, (nowD - 2) * 46) : 0;
+    wrap.scrollTop = 0;
+    document.getElementById('left-body').scrollTop = 0;
+  });
+}
+
+// ── Cell tap ─────────────────────────────────────────────────────────────────
+document.getElementById('dates-tbody').addEventListener('click', function(e) {
+  var td = e.target.closest('.data-td');
+  if (!td) return;
+  var mi  = parseInt(td.dataset.mi, 10);
+  var d   = parseInt(td.dataset.d,  10);
+  var mac = MACHINES[mi];
+  toggleState(viewY, viewM, d, mac);
+  var done = getState(viewY, viewM, d, mac);
+  td.innerHTML = done ? '<span class="sumi">済</span>' : '';
+  if (window.navigator.vibrate) window.navigator.vibrate(12);
+});
+
+// ── Vertical scroll sync ──────────────────────────────────────────────────────
+document.getElementById('right-wrap').addEventListener('scroll', function() {
+  document.getElementById('left-body').scrollTop = this.scrollTop;
+}, { passive: true });
+
+// ── Month navigation ──────────────────────────────────────────────────────────
+document.getElementById('btn-prev').addEventListener('click', function() {
+  if (viewY === START.y && viewM === START.m) return;
+  if (--viewM < 1) { viewM = 12; viewY--; }
+  render();
+});
+document.getElementById('btn-next').addEventListener('click', function() {
+  if (++viewM > 12) { viewM = 1; viewY++; }
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
